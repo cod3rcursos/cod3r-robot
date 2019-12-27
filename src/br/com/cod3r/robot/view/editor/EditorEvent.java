@@ -1,0 +1,7 @@
+package br.com.cod3r.robot.view.editor;
+
+public enum EditorEvent {
+	COPY_FILE_NAME, MIN_SPEED, MAX_SPEED, NEW_FILE,
+	LOAD_FILE, SAVE_FILE, PREV_FILE, NEXT_FILE,
+	FONT_INCREASE, FONT_DECREASE, HELP, VALIDATION_MODE;
+}
