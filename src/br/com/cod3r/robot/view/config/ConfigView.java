@@ -8,8 +8,6 @@ import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -18,19 +16,15 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 
-import com.tulskiy.keymaster.common.HotKey;
-import com.tulskiy.keymaster.common.HotKeyListener;
 import com.tulskiy.keymaster.common.Provider;
 
 import br.com.cod3r.robot.helper.StoreData;
-import br.com.cod3r.robot.text.TextListener;
+import br.com.cod3r.robot.text.TextController;
 import net.miginfocom.swing.MigLayout;
 
-public class ConfigView extends JPanel implements HotKeyListener {
+public class ConfigView extends JPanel {
 
 	private static final long serialVersionUID = 1L;
-
-	private final List<TextListener> listeners = new ArrayList<TextListener>();
 
 	private Provider keyListenerProvider;
 
@@ -230,39 +224,6 @@ public class ConfigView extends JPanel implements HotKeyListener {
 		return panel;
 	}
 
-	public void addListener(TextListener listener) {
-		this.listeners.add(listener);
-	}
-
-	@Override
-	public void onHotKey(HotKey key) {
-		int keyCode = key.keyStroke.getKeyCode();
-		int modifiers = key.keyStroke.getModifiers();
-
-		waitForKeyReleased();
-
-		int resetKey = StoreData.getInstance().getResetKey();
-		int resetModifiers = StoreData.getInstance().getResetModifiers();
-		int nextKey = StoreData.getInstance().getNextKey();
-		int nextModifiers = StoreData.getInstance().getNextModifiers();
-		int prevKey = StoreData.getInstance().getPrevKey();
-		int prevModifiers = StoreData.getInstance().getPrevModifiers();
-		
-		if (keyCode == resetKey && modifiers == resetModifiers) {
-			for (TextListener listener : listeners) {
-				listener.onReset();
-			}
-		} else if (keyCode == nextKey && modifiers == nextModifiers) {
-			for (TextListener listener : listeners) {
-				listener.onUnblock();
-			}
-		} else if (keyCode == prevKey && modifiers == prevModifiers) {
-			for (TextListener listener : listeners) {
-				listener.onRollback();
-			}
-		}
-	}
-
 	private void refreshKeys() {
 
 		if (keyListenerProvider != null) {
@@ -280,19 +241,12 @@ public class ConfigView extends JPanel implements HotKeyListener {
 		int prevModifiers = StoreData.getInstance().getPrevModifiers();
 
 		KeyStroke clearKeyStroke = KeyStroke.getKeyStroke(resetKey, resetModifiers);
-		keyListenerProvider.register(clearKeyStroke, this);
+		keyListenerProvider.register(clearKeyStroke, TextController.getInstance());
 
 		KeyStroke nextKeyStroke = KeyStroke.getKeyStroke(nextKey, nextModifiers);
-		keyListenerProvider.register(nextKeyStroke, this);
+		keyListenerProvider.register(nextKeyStroke, TextController.getInstance());
 
 		KeyStroke prevKeyStroke = KeyStroke.getKeyStroke(prevKey, prevModifiers);
-		keyListenerProvider.register(prevKeyStroke, this);
-	}
-
-	private void waitForKeyReleased() {
-		try {
-			Thread.sleep(250);
-		} catch (InterruptedException e) {
-		}
+		keyListenerProvider.register(prevKeyStroke, TextController.getInstance());
 	}
 }

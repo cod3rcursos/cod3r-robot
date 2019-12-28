@@ -1,4 +1,4 @@
-package br.com.cod3r.robot.view.editor;
+package br.com.cod3r.robot.view.editor.toolbar;
 
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
@@ -16,15 +16,17 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import br.com.cod3r.robot.helper.OS;
 
 @SuppressWarnings("serial")
-public class EditorToolbar extends JPanel {
-
-	private final JButton copyFileName = new JButton("FN");
-	private final JTextField minSpeed = new JTextField("90", 4);
-	private final JTextField maxSpeed = new JTextField("130", 4);
+public class Toolbar extends JPanel {
+	
+	private final JButton copyFileNameButton = new JButton("FN");
+	private final JTextField minWaitingTimeField = new JTextField("90", 4);
+	private final JTextField maxWaitingTimeField = new JTextField("130", 4);
 	private final JButton newButton = new JButton("Novo");
 	private final JButton loadButton = new JButton("Carregar");
 	private final JButton saveButton = new JButton("Salvar");
@@ -33,20 +35,20 @@ public class EditorToolbar extends JPanel {
 	private final JButton fontUpButton = new JButton("+");
 	private final JButton fontDownButton = new JButton("-");
 	private final JButton helpButton = new JButton("?");
-	private final JLabel labelValidationMode = new JLabel("Modo Validação: ");
-	private final JCheckBox boxValidationMode = new JCheckBox();
+	private final JLabel validationModeLabel = new JLabel("Modo Validação: ");
+	private final JCheckBox validationModeCheck = new JCheckBox();
 
-	private final List<Consumer<EditorEvent>> functions = new ArrayList<>();
+	private final List<Consumer<ToolbarEvent>> functions = new ArrayList<>();
 
-	public EditorToolbar() {
+	public Toolbar() {
 		super(new FlowLayout());
-		
+
 		registerListeners();
 		registerHotkeys();
 
-		add(copyFileName);
-		add(minSpeed);
-		add(maxSpeed);
+		add(copyFileNameButton);
+		add(minWaitingTimeField);
+		add(maxWaitingTimeField);
 		add(newButton);
 		add(loadButton);
 		add(saveButton);
@@ -55,121 +57,104 @@ public class EditorToolbar extends JPanel {
 		add(fontUpButton);
 		add(fontDownButton);
 		add(helpButton);
-		add(labelValidationMode);
-		add(boxValidationMode);
+		add(validationModeLabel);
+		add(validationModeCheck);
 	}
 
-	public void onEvent(Consumer<EditorEvent> fn) {
+	public void onEvent(Consumer<ToolbarEvent> fn) {
 		functions.add(fn);
-	}
-
-	public long getMinSpeed() {
-		return Long.parseLong(minSpeed.getText());
-	}
-
-	public void setMinSpeed(long newSpeed) {
-		if (newSpeed > 0) {
-			minSpeed.setText(Long.toString(newSpeed));
-		}
-	}
-
-	public long getMaxSpeed() {
-		return Long.parseLong(maxSpeed.getText());
-	}
-
-	public void setMaxSpeed(long newSpeed) {
-		if (newSpeed > 0) {
-			maxSpeed.setText(Long.toString(newSpeed));
-		}
-	}
-
-	public boolean isValidationMode() {
-		return boxValidationMode.isSelected();
 	}
 
 	private void registerListeners() {
 		newButton.addActionListener(e -> {
-			functions.forEach(fn -> {
-				fn.accept(EditorEvent.NEW_FILE);
-			});
+			notifyListeners(ToolbarEventType.NEW_FILE);
 		});
 
 		loadButton.addActionListener(e -> {
-			functions.forEach(fn -> {
-				fn.accept(EditorEvent.LOAD_FILE);
-			});
+			notifyListeners(ToolbarEventType.LOAD_FILE);
 		});
 
 		saveButton.addActionListener(new AbstractAction() {
 			public void actionPerformed(ActionEvent e) {
-				functions.forEach(fn -> {
-					fn.accept(EditorEvent.SAVE_FILE);
-				});
+				notifyListeners(ToolbarEventType.SAVE_FILE);
 			}
 		});
-	
+
 		prevFileButton.addActionListener(e -> {
-			functions.forEach(fn -> {
-				fn.accept(EditorEvent.PREV_FILE);
-			});
+			notifyListeners(ToolbarEventType.PREV_FILE);
 		});
 
 		nextFileButton.addActionListener(e -> {
-			functions.forEach(fn -> {
-				fn.accept(EditorEvent.NEXT_FILE);
-			});
+			notifyListeners(ToolbarEventType.NEXT_FILE);
 		});
-		 
+
 		fontUpButton.addActionListener(new AbstractAction() {
 			public void actionPerformed(ActionEvent e) {
-				functions.forEach(fn -> {
-					fn.accept(EditorEvent.FONT_INCREASE);
-				});
+				notifyListeners(ToolbarEventType.FONT_INCREASE);
 			}
 		});
 
 		fontDownButton.addActionListener(new AbstractAction() {
 			public void actionPerformed(ActionEvent e) {
-				functions.forEach(fn -> {
-					fn.accept(EditorEvent.FONT_DECREASE);
-				});
+				notifyListeners(ToolbarEventType.FONT_DECREASE);
 			}
 		});
 
 		helpButton.addActionListener(e -> {
-			functions.forEach(fn -> {
-				fn.accept(EditorEvent.HELP);
-			});
+			notifyListeners(ToolbarEventType.HELP);
 		});
 
-		boxValidationMode.addActionListener(e -> {
-			if (boxValidationMode.isSelected()) {
-				minSpeed.setText("35");
-				maxSpeed.setText("50");
+		validationModeCheck.addActionListener(e -> {
+			if (validationModeCheck.isSelected()) {
+				minWaitingTimeField.setText("35");
+				maxWaitingTimeField.setText("50");
 			} else {
-				minSpeed.setText("90");
-				maxSpeed.setText("130");
+				minWaitingTimeField.setText("90");
+				maxWaitingTimeField.setText("130");
 			}
+			
+			notifyListeners(ToolbarEventType.VALIDATION_MODE);
+			notifyListeners(ToolbarEventType.MIN_WAITING_TIME);
+			notifyListeners(ToolbarEventType.MAX_WAITING_TIME);
 		});
 
-		copyFileName.addActionListener(e -> {
-			functions.forEach(fn -> {
-				fn.accept(EditorEvent.COPY_FILE_NAME);
-			});
+		copyFileNameButton.addActionListener(e -> {
+			notifyListeners(ToolbarEventType.COPY_FILE_NAME);
 		});
-	}
-	
-	private void registerHotkeys() {
-		KeyStroke saveKey = OS.isMac() ? 
-				KeyStroke.getKeyStroke("meta S") : 
-				KeyStroke.getKeyStroke("control S");
+
 		
+		DocumentListener docListener = new DocumentListener() {
+			public void changedUpdate(DocumentEvent e) {
+				update();
+			}
+
+			public void removeUpdate(DocumentEvent e) {
+				update();
+			}
+
+			public void insertUpdate(DocumentEvent e) {
+				update();
+			}
+
+			public void update() {
+				notifyListeners(ToolbarEventType.MIN_WAITING_TIME);
+				notifyListeners(ToolbarEventType.MAX_WAITING_TIME);
+			}
+		};
+		
+		minWaitingTimeField.getDocument().addDocumentListener(docListener);
+		maxWaitingTimeField.getDocument().addDocumentListener(docListener);
+	}
+
+	private void registerHotkeys() {
+		KeyStroke saveKey = OS.isMac() ? KeyStroke.getKeyStroke("meta S") : KeyStroke.getKeyStroke("control S");
+
 		Action saveAction = (Action) saveButton.getActionListeners()[0];
 		saveAction.putValue(Action.ACCELERATOR_KEY, saveKey);
 		saveButton.getActionMap().put("saveAction", saveAction);
 		saveButton.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
 				.put((KeyStroke) saveAction.getValue(Action.ACCELERATOR_KEY), "saveAction");
-		
+
 		Action fontUpAction = (Action) fontUpButton.getActionListeners()[0];
 		fontUpAction.putValue(Action.ACCELERATOR_KEY,
 				KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, KeyEvent.CTRL_DOWN_MASK));
@@ -184,5 +169,14 @@ public class EditorToolbar extends JPanel {
 		fontDownButton.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
 				.put((KeyStroke) fontDownAction.getValue(Action.ACCELERATOR_KEY), "fontDownAction");
 
+	}
+	
+	private void notifyListeners(ToolbarEventType type) {
+		functions.forEach(fn -> {
+			String minWT = minWaitingTimeField.getText();
+			String maxWT = maxWaitingTimeField.getText();
+			boolean validationMode = validationModeCheck.isSelected();
+			fn.accept(new ToolbarEvent(type, minWT, maxWT, validationMode));
+		});
 	}
 }

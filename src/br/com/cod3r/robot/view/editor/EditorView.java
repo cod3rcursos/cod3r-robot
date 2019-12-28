@@ -31,131 +31,128 @@ import javax.swing.text.BadLocationException;
 import javax.swing.undo.CannotUndoException;
 import javax.swing.undo.UndoManager;
 
-import br.com.cod3r.robot.exception.BlockException;
-import br.com.cod3r.robot.exception.ChangeMaxSpeedException;
-import br.com.cod3r.robot.exception.ChangeMinSpeedException;
-import br.com.cod3r.robot.exception.WaitException;
 import br.com.cod3r.robot.helper.Files;
-import br.com.cod3r.robot.helper.OS;
 import br.com.cod3r.robot.helper.StoreData;
-import br.com.cod3r.robot.keyboard.KeySequence;
-import br.com.cod3r.robot.keyboard.KeyboardMapper;
-import br.com.cod3r.robot.keyboard.Typist;
-import br.com.cod3r.robot.text.Text;
-import br.com.cod3r.robot.text.TextListener;
+import br.com.cod3r.robot.text.TextController;
+import br.com.cod3r.robot.text.TextEventType;
+import br.com.cod3r.robot.view.editor.toolbar.ToolbarEventType;
+import br.com.cod3r.robot.view.editor.toolbar.Toolbar;
 
-public class EditorView extends JPanel implements TextListener, Runnable {
+public class EditorView extends JPanel {
 
 	private static final long serialVersionUID = 1L;
 
-	private boolean block = true;
 	private boolean changed = false;
 
 	private File file;
 	private UndoManager undoManager = new UndoManager();
 
-	private final Text text = new Text();
-
+	private final TextController textCtrl = TextController.getInstance();
+	
 	private final Frame parent;
-
-	private final EditorToolbar toolbar = new EditorToolbar();
+	private final Toolbar toolbar = new Toolbar();
 	private final EditorSidebar sidebar = new EditorSidebar();
-	private final JTextPane previewText;
-	private final JTextPane mainText;
-	private JScrollPane mainTextScroll = null;
+	
+	private final JPanel textAreas = new JPanel(new BorderLayout());
+	private final JTextPane mainTextArea = new JTextPane();
+	private final JScrollPane mainTextAreaScroll = new JScrollPane(mainTextArea);
+	private final JTextPane previewTextArea = new JTextPane() {
+		private static final long serialVersionUID = 1L;
 
-	private final SyntaxHighlighting syntaxHighlighting;
+		public boolean getScrollableTracksViewportWidth() {
+			return getUI().getPreferredSize(this).width <= getParent().getSize().width;
+		}
+	};
+
+	private final SyntaxHighlighting syntaxHighlighting = new SyntaxHighlighting(previewTextArea);;
 
 	public EditorView(Frame parent) {
 		this.parent = parent;		
+		
+		setupToolbar();
+		setupTextAreas();		
+		setupSidebar();				
+		setupLayout();
+
+		loadLastFile();
+		setupTextController();
+	}
+
+
+
+	private void setupLayout() {
 		this.setLayout(new BorderLayout());
-
-		configToolbarEvents();
 		this.add(toolbar, BorderLayout.NORTH);
+		this.add(textAreas, BorderLayout.CENTER);
+		this.add(sidebar, BorderLayout.EAST);
+	}
 
-		Font font = new Font("Verdana", Font.PLAIN, 35);
+	private void setupTextAreas() {
+		setupMainTextArea();
+		setupPreviewTextArea();
+		
+		textAreas.setBackground(Color.BLACK);
+		textAreas.add(new JScrollPane(previewTextArea, JScrollPane.VERTICAL_SCROLLBAR_NEVER,
+				JScrollPane.HORIZONTAL_SCROLLBAR_NEVER), BorderLayout.NORTH);
+		textAreas.add(mainTextAreaScroll, BorderLayout.CENTER);
+	}
 
-		mainText = new JTextPane();
-		mainText.setFont(font);
-		mainText.setBackground(Color.BLACK);
-		mainText.setForeground(Color.WHITE);
-		mainText.setCaretColor(Color.WHITE);
-		mainText.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+	private void setupSidebar() {
+		sidebar.onEvent((text, caretPositionDiff) -> {
+			try {
+				mainTextArea.getDocument().insertString(mainTextArea.getCaretPosition(), text, null);
+				mainTextArea.setCaretPosition(mainTextArea.getCaretPosition() + caretPositionDiff);
+			} catch (BadLocationException e1) {
+			}
+		});
+	}
 
+	private void setupPreviewTextArea() {
 		Font fontPresentation = new Font("Verdana", Font.PLAIN, 55);
 
-		previewText = new JTextPane() {
-			private static final long serialVersionUID = 1L;
+				previewTextArea.setFont(fontPresentation);
+		previewTextArea.setBackground(Color.BLACK);
+		previewTextArea.setForeground(Color.WHITE);
+	}
 
-			public boolean getScrollableTracksViewportWidth() {
-				return getUI().getPreferredSize(this).width <= getParent().getSize().width;
-			}
-		};
-		previewText.setFont(fontPresentation);
-		previewText.setBackground(Color.BLACK);
-		previewText.setForeground(Color.WHITE);
+	private void setupMainTextArea() {
+		Font font = new Font("Verdana", Font.PLAIN, 35);
+		mainTextArea.setFont(font);
+		mainTextArea.setBackground(Color.BLACK);
+		mainTextArea.setForeground(Color.WHITE);
+		mainTextArea.setCaretColor(Color.WHITE);
+		mainTextArea.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+		
+		configureUndoAndRedo();
 
-		mainText.getDocument().addDocumentListener(new DocumentListener() {
+		mainTextArea.getDocument().addDocumentListener(new DocumentListener() {
 			public void removeUpdate(DocumentEvent e) {
-				text.load(mainText.getText());
-				setTextToTextAreaPresentation(mainText.getText());
-				block = true;
+				TextController.getInstance().load(mainTextArea.getText());
+				updatePreviewTextArea(mainTextArea.getText());
 				markTextAsChanged();
 			}
 
 			public void insertUpdate(DocumentEvent e) {
-				text.load(mainText.getText());
-				setTextToTextAreaPresentation(mainText.getText());
-				block = true;
+				TextController.getInstance().load(mainTextArea.getText());
+				updatePreviewTextArea(mainTextArea.getText());
 				markTextAsChanged();
 			}
 
 			public void changedUpdate(DocumentEvent e) {
 			}
 		});
-
-		syntaxHighlighting = new SyntaxHighlighting(previewText);
-
-		configureUndoAndRedo();
-
-		mainTextScroll = new JScrollPane(mainText);
-
-		JPanel textAreas = new JPanel(new BorderLayout());
-		textAreas.setBackground(Color.BLACK);
-
-		textAreas.add(new JScrollPane(previewText, JScrollPane.VERTICAL_SCROLLBAR_NEVER,
-				JScrollPane.HORIZONTAL_SCROLLBAR_NEVER), BorderLayout.NORTH);
-		textAreas.add(mainTextScroll, BorderLayout.CENTER);
-
-		this.add(textAreas, BorderLayout.CENTER);
-		this.add(sidebar, BorderLayout.EAST);
-
-		sidebar.onEvent((text, caretPositionDiff) -> {
-			try {
-				mainText.getDocument().insertString(mainText.getCaretPosition(), text, null);
-				mainText.setCaretPosition(mainText.getCaretPosition() + caretPositionDiff);
-			} catch (BadLocationException e1) {
-			}
-		});
-		
-		file = StoreData.getInstance().getLastFile();
-		loadFile();
-
-		Thread thread = new Thread(this);
-		thread.setDaemon(true);
-		thread.start();
 	}
 
 	@SuppressWarnings("serial")
 	private void configureUndoAndRedo() {
-		mainText.getDocument().addUndoableEditListener(new UndoableEditListener() {
+		mainTextArea.getDocument().addUndoableEditListener(new UndoableEditListener() {
 			public void undoableEditHappened(UndoableEditEvent e) {
 				undoManager.addEdit(e.getEdit());
 			}
 		});
 
-		InputMap im = mainText.getInputMap(JComponent.WHEN_FOCUSED);
-		ActionMap am = mainText.getActionMap();
+		InputMap im = mainTextArea.getInputMap(JComponent.WHEN_FOCUSED);
+		ActionMap am = mainTextArea.getActionMap();
 		
 		im.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()), "Undo");
 		im.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()), "Redo");
@@ -187,107 +184,44 @@ public class EditorView extends JPanel implements TextListener, Runnable {
 		});
 	}
 
-	private void configToolbarEvents() {
-		toolbar.onEvent(event -> {
-			if (event == EditorEvent.NEW_FILE) {
-				newFile();
-			} else if (event == EditorEvent.LOAD_FILE) {
-				showChooser();
-			} else if (event == EditorEvent.SAVE_FILE) {
-				saveFile();
-			} else if (event == EditorEvent.PREV_FILE) {
-				prevFile();
-			} else if (event == EditorEvent.NEXT_FILE) {
-				nextFile();
-			} else if (event == EditorEvent.FONT_INCREASE) {
-				fontIncrease();
-			} else if (event == EditorEvent.FONT_DECREASE) {
-				fontDecrease();
-			} else if (event == EditorEvent.HELP) {
-				HelpDialog.show(parent);
-			} else if (event == EditorEvent.COPY_FILE_NAME) {
+	private void setupToolbar() {		
+		toolbar.onEvent(e -> {
+			if (e.getType() == ToolbarEventType.COPY_FILE_NAME) {
 				copyFileName();
+			} else if (e.getType() == ToolbarEventType.MIN_WAITING_TIME) {
+				textCtrl.setMinWaitingTime(e.getMinWaitingTime());
+			} else if (e.getType() == ToolbarEventType.MAX_WAITING_TIME) {
+				textCtrl.setMaxWaitingTime(e.getMaxWaitingTime());
+			} else if (e.getType() == ToolbarEventType.NEW_FILE) {
+				newFile();
+			} else if (e.getType() == ToolbarEventType.LOAD_FILE) {
+				showChooser();
+			} else if (e.getType() == ToolbarEventType.SAVE_FILE) {
+				saveFile();
+			} else if (e.getType() == ToolbarEventType.PREV_FILE) {
+				prevFile();
+			} else if (e.getType() == ToolbarEventType.NEXT_FILE) {
+				nextFile();
+			} else if (e.getType() == ToolbarEventType.FONT_INCREASE) {
+				fontIncrease();
+			} else if (e.getType() == ToolbarEventType.FONT_DECREASE) {
+				fontDecrease();
+			} else if (e.getType() == ToolbarEventType.HELP) {
+				HelpDialog.show(parent);
+			} else if (e.getType() == ToolbarEventType.VALIDATION_MODE) {
+				textCtrl.setIgnoreBlock(e.isValidationMode());				
 			}
 		});
 	}
-
-	@Override
-	public void onType() {
-		if (!block) {
-			try {
-				String keys = text.next();
-
-				if (keys != null) {
-					KeySequence keySequence = KeyboardMapper.getKeyCode(keys);
-					Typist.type(keySequence);
-				}
-
-				if (needExtraSpace(keys)) {
-					Typist.type(KeyboardMapper.getKeyCode(" "));
-				}
-
-				boolean finished = keys == null || !text.hasNext();
-				if (finished && !changed) {
-					nextFile();
-				}
-
-				setTextToTextAreaPresentation(text.getRemainText());
-			} catch (BlockException e) {
-				if (!toolbar.isValidationMode()) {
-					block = true;
-				}
-			} catch (WaitException e) {
-				waitFor(e.getTime());
-			} catch (ChangeMinSpeedException e) {
-				toolbar.setMinSpeed(e.getTime());
-			} catch (ChangeMaxSpeedException e) {
-				toolbar.setMaxSpeed(e.getTime());
+	
+	private void setupTextController() {
+		textCtrl.onEvent(e -> {
+			if(e.getType() == TextEventType.TYPED) {
+				updatePreviewTextArea(e.getRemainText());
+			} else if(e.getType() == TextEventType.FINISHED && !changed) {
+				nextFile();				
 			}
-		}
-	}
-
-	private boolean needExtraSpace(String keys) {
-		return ("\"".equals(keys) || "\'".equals(keys)) && OS.isMac();
-	}
-
-	@Override
-	public void onUnblock() {
-		block = false;
-	}
-
-	@Override
-	public void onReset() {
-		text.load(mainText.getText());
-	}
-
-	@Override
-	public void onRollback() {
-		text.rollbackIndex();
-	}
-
-	@Override
-	public void run() {
-		while (true) {
-			try {
-				Thread.sleep(getSleepInterval());
-				onType();
-			} catch (InterruptedException e) {
-			}
-		}
-	}
-
-	private long getSleepInterval() {
-		long min = toolbar.getMinSpeed();
-		long max = toolbar.getMaxSpeed();
-		long diff = max - min;
-		return (long) (Math.random() * diff + min);
-	}
-
-	private void waitFor(long time) {
-		try {
-			Thread.sleep(time);
-		} catch (InterruptedException e) {
-		}
+		});
 	}
 
 	private boolean ignoreChange() {
@@ -323,7 +257,7 @@ public class EditorView extends JPanel implements TextListener, Runnable {
 		}
 
 		if (file != null) {
-			Files.writeFile(file.getAbsolutePath(), mainText.getText());
+			Files.writeFile(file.getAbsolutePath(), mainTextArea.getText());
 			StoreData.getInstance().setLastFile(file);
 			StoreData.getInstance().save();
 			parent.setTitle(file.getAbsolutePath());
@@ -334,8 +268,8 @@ public class EditorView extends JPanel implements TextListener, Runnable {
 	private void newFile() {
 		parent.setTitle("");
 		file = null;
-		setTextToTextArea(null);
-		text.clear();
+		updateMainTextArea(null);
+		TextController.getInstance().clear();
 		saveFile();
 	}
 
@@ -362,10 +296,15 @@ public class EditorView extends JPanel implements TextListener, Runnable {
 		}
 	}
 	
-	private void loadFile() {
+	private void loadLastFile() {
+		file = StoreData.getInstance().getLastFile();
+		loadFile();
+	}
+	
+	private void loadFile() {		
 		if(file != null) {
-			setTextToTextArea(Files.readFile(file.getAbsolutePath()));
-			mainText.setCaretPosition(0);
+			updateMainTextArea(Files.readFile(file.getAbsolutePath()));
+			mainTextArea.setCaretPosition(0);
 			parent.setTitle(file.getAbsolutePath());
 			changed = false;			
 		}
@@ -383,8 +322,8 @@ public class EditorView extends JPanel implements TextListener, Runnable {
 				File backup = EditorView.this.file;
 				EditorView.this.file = new File(newFile);
 				try {
-					setTextToTextArea(Files.readFile(EditorView.this.file.getAbsolutePath()));
-					mainText.setCaretPosition(0);
+					updateMainTextArea(Files.readFile(EditorView.this.file.getAbsolutePath()));
+					mainTextArea.setCaretPosition(0);
 					parent.setTitle(EditorView.this.file.getAbsolutePath());
 					changed = false;
 				} catch (Exception e1) {
@@ -411,8 +350,8 @@ public class EditorView extends JPanel implements TextListener, Runnable {
 				File backup = EditorView.this.file;
 				EditorView.this.file = new File(newFile);
 				try {
-					setTextToTextArea(Files.readFile(EditorView.this.file.getAbsolutePath()));
-					mainText.setCaretPosition(0);
+					updateMainTextArea(Files.readFile(EditorView.this.file.getAbsolutePath()));
+					mainTextArea.setCaretPosition(0);
 					parent.setTitle(EditorView.this.file.getAbsolutePath());
 					changed = false;
 				} catch (Exception e1) {
@@ -424,15 +363,15 @@ public class EditorView extends JPanel implements TextListener, Runnable {
 	}
 
 	private void fontIncrease() {
-		Font font = mainText.getFont();
+		Font font = mainTextArea.getFont();
 		Font newFont = new Font(font.getName(), font.getStyle(), font.getSize() + 2);
-		mainText.setFont(newFont);
+		mainTextArea.setFont(newFont);
 	}
 
 	private void fontDecrease() {
-		Font font = mainText.getFont();
+		Font font = mainTextArea.getFont();
 		Font newFont = new Font(font.getName(), font.getStyle(), font.getSize() - 2);
-		mainText.setFont(newFont);
+		mainTextArea.setFont(newFont);
 	}
 
 	private void copyFileName() {
@@ -445,14 +384,14 @@ public class EditorView extends JPanel implements TextListener, Runnable {
 		Toolkit.getDefaultToolkit().getSystemClipboard().setContents(stringSelection, null);
 	}
 
-	private void setTextToTextArea(String text) {
-		mainText.setText(text);
-		setTextToTextAreaPresentation(text);
+	private void updateMainTextArea(String text) {
+		mainTextArea.setText(text);
+		updatePreviewTextArea(text);
 	}
 
-	private void setTextToTextAreaPresentation(String text) {
+	private void updatePreviewTextArea(String text) {
 		if (text == null) {
-			previewText.setText(null);
+			previewTextArea.setText(null);
 			return;
 		}
 
@@ -471,9 +410,9 @@ public class EditorView extends JPanel implements TextListener, Runnable {
 			text = text.substring(0, 140);
 		}
 
-		previewText.setEditable(true);
-		previewText.setText(text);
-		previewText.setEditable(false);
+		previewTextArea.setEditable(true);
+		previewTextArea.setText(text);
+		previewTextArea.setEditable(false);
 
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override

@@ -1,12 +1,12 @@
 package br.com.cod3r.robot.exception;
 
-public class ChangeMaxSpeedException extends RuntimeException {
+public class ChangeMinWaitingTimeException extends RuntimeException {
 
 	private static final long serialVersionUID = 1L;
 
 	private final long time;
 
-	public ChangeMaxSpeedException(long time) {
+	public ChangeMinWaitingTimeException(long time) {
 		this.time = time;
 	}
 

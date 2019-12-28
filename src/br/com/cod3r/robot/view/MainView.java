@@ -20,17 +20,14 @@ public class MainView extends JFrame {
 		} catch (Exception e) {
 		}
 
-		this.setLayout(new BorderLayout());
-
 		EditorView editorView = new EditorView(this);
-
 		ConfigView configView = new ConfigView();
-		configView.addListener(editorView);
 
 		JTabbedPane tabs = new JTabbedPane();
 		tabs.addTab("Editor", editorView);
 		tabs.addTab("Config", configView);
 
+		this.setLayout(new BorderLayout());
 		this.add(tabs, BorderLayout.CENTER);
 
 		setSize(800, 600);

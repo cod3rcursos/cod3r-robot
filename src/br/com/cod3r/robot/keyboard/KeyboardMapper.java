@@ -4,8 +4,8 @@ import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 
 import br.com.cod3r.robot.exception.BlockException;
-import br.com.cod3r.robot.exception.ChangeMaxSpeedException;
-import br.com.cod3r.robot.exception.ChangeMinSpeedException;
+import br.com.cod3r.robot.exception.ChangeMaxWaitingTimeException;
+import br.com.cod3r.robot.exception.ChangeMinWaitingTimeException;
 import br.com.cod3r.robot.exception.WaitException;
 import br.com.cod3r.robot.helper.OS;
 
@@ -191,9 +191,9 @@ public class KeyboardMapper {
 		case ":":
 			return new KeySequence("+16 59 -16");
 		case "'":
-			return new KeySequence("222");
+			return OS.isMac() ? new KeySequence("222 32") : new KeySequence("222");
 		case "\"":
-			return new KeySequence("+16 222 -16");
+			return OS.isMac() ? new KeySequence("+16 222 -16 32") : new KeySequence("+16 222 -16");
 		case "/":
 			return new KeySequence("111");
 		case ",":
@@ -237,9 +237,9 @@ public class KeyboardMapper {
 		case "[[b]]":
 			throw new BlockException();
 		case "[[min]]":
-			throw new ChangeMinSpeedException(command.times);
+			throw new ChangeMinWaitingTimeException(command.times);
 		case "[[max]]":
-			throw new ChangeMaxSpeedException(command.times);
+			throw new ChangeMaxWaitingTimeException(command.times);
 //		case "[[idea.c]]":
 //			return "+17 111 -17 38 35";
 //		case "[[ctrl+enter]]":
