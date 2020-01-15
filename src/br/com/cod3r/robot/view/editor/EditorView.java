@@ -297,8 +297,12 @@ public class EditorView extends JPanel {
 	}
 	
 	private void loadLastFile() {
-		file = StoreData.getInstance().getLastFile();
-		loadFile();
+		try {
+			file = StoreData.getInstance().getLastFile();
+			loadFile();
+		} catch (Exception e) {
+			file = null;
+		}
 	}
 	
 	private void loadFile() {		
